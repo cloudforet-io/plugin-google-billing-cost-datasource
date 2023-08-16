@@ -5,7 +5,7 @@ from dateutil import rrule
 
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.error import *
-from cloudforet.cost_analysis.connector import GoogleStorageConnector
+from cloudforet.cost_analysis.connector import BigqueryConnector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class CostManager(BaseManager):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.google_storage_connector: GoogleStorageConnector = self.locator.get_connector(GoogleStorageConnector)
+        self.google_storage_connector: BigqueryConnector = self.locator.get_connector(BigqueryConnector)
         self.bucket = None
 
     def get_data(self, options, secret_data, schema, task_options):

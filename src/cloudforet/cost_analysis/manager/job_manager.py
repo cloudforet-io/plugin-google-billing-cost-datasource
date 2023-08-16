@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.error import *
-from cloudforet.cost_analysis.connector import GoogleStorageConnector
+from cloudforet.cost_analysis.conf.cost_conf import *
+from cloudforet.cost_analysis.connector import BigqueryConnector, CloudBillingConnector
 from cloudforet.cost_analysis.model import Tasks
 
 _LOGGER = logging.getLogger(__name__)
@@ -12,9 +13,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class JobManager(BaseManager):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.google_storage_connector: GoogleStorageConnector = self.locator.get_connector(GoogleStorageConnector)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bigquery_connector: BigqueryConnector = self.locator.get_connector(BigqueryConnector)
+        self.cloud_billing_connector: CloudBillingConnector = self.locator.get_connector(CloudBillingConnector)
 
     def get_tasks(self, options, secret_data, schema, start, last_synchronized_at, domain_id):
 
@@ -24,34 +26,37 @@ class JobManager(BaseManager):
         start_time = self._get_start_time(start, last_synchronized_at)
         start_date = start_time.strftime('%Y-%m-%d')
         changed_time = start_time
-        self.google_storage_connector.create_session(options, secret_data, schema)
 
-        bucket = secret_data['bucket']
-        organization = secret_data['organization']
+        self.bigquery_connector.create_session(options, secret_data, schema)
+        self.cloud_billing_connector.create_session(options, secret_data, schema)
 
-        for gcs_bucket in self.google_storage_connector.list_buckets():
-            if gcs_bucket['name'] == bucket:
-                folders_info = self.google_storage_connector.list_objects(bucket)
-                folder_paths = [folder_info['name'] for folder_info in folders_info]
+        billing_dataset = self._get_billing_dataset_from_secret_data(secret_data)
 
-                task_info = self._create_task_info(folder_paths)
-                task_info = self._change_valid_task_info(task_info, organization, bucket)
+        billing_info = self.cloud_billing_connector.get_billing_info()
+        prefix, sub_billing_account = billing_info['billingAccountName'].split('/')
 
-                for organization, sub_billing_accounts in task_info.items():
-                    for sub_billing_account in sub_billing_accounts:
-                        tasks.append({
-                            'task_options': {
-                                'bucket': bucket,
-                                'organization': organization,
-                                'sub_billing_account': sub_billing_account,
-                                'start': start_date
-                            }
-                        })
-                        changed.append({'start': changed_time})
+        secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
+
+        if secret_type == 'MANUAL':
+            # NOT IMPLEMENTED
+            pass
+        elif secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
+            task = {
+                'task_options': {
+                    'start': start_date,
+                    'billing_dataset': billing_dataset,
+                    'sub_billing_account': sub_billing_account,
+                    'project_id': secret_data['project_id']
+                }
+            }
+
+            tasks.append(task)
+            changed.append({'start': changed_time})
+        else:
+            raise ERROR_INVALID_SECRET_TYPE(secret_type=options.get('secret_type'))
 
         tasks = Tasks({'tasks': tasks, 'changed': changed})
         tasks.validate()
-        _LOGGER.debug(f'[get_tasks] create JobTasks: {tasks.to_primitive()}')
         return tasks.to_primitive()
 
     @staticmethod
@@ -70,48 +75,12 @@ class JobManager(BaseManager):
         return start_time
 
     @staticmethod
-    def _create_task_info(folder_paths):
-        task_info = {}
-        for folder_path in folder_paths:
-            try:
-                organization, path = folder_path.split('/', 1)
-                sub_billing_account_id, path = path.split('/', 1)
-                if not task_info.get(organization):
-                    task_info[organization] = [sub_billing_account_id]
-                else:
-                    if sub_billing_account_id not in task_info[organization]:
-                        task_info[organization].append(sub_billing_account_id)
-            except ValueError:
-                continue
-        return task_info
-
-    def _change_valid_task_info(self, task_info, organization, bucket_name):
-        valid_task_info = {}
-
-        if organization == '*':
-            for org_in_task_info in task_info:
-                valid_task_info[org_in_task_info] = self._check_sub_billing_account_id(task_info[org_in_task_info],
-                                                                                       org_in_task_info,
-                                                                                       bucket_name)
+    def _get_billing_dataset_from_secret_data(secret_data):
+        if not secret_data.get('billing_dataset'):
+            _LOGGER.info(
+                f'[get_tasks] Not exist billing_dataset in secret_data. Use default: {DEFAULT_BILLING_DATASET}')
+            billing_dataset = DEFAULT_BILLING_DATASET
         else:
-            if organization in task_info:
-                valid_task_info[organization] = self._check_sub_billing_account_id(task_info[organization],
-                                                                                   organization,
-                                                                                   bucket_name)
-            else:
-                _LOGGER.debug(f'[get_tasks] Not valid organization: {bucket_name}/{organization}')
-                raise ERROR_NOT_VALID_ORGANIZATION(organization=organization)
-        return valid_task_info
-
-    @staticmethod
-    def _check_sub_billing_account_id(sub_billing_account_ids, organization, bucket_name):
-        pattern = r'^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}'
-        for sub_billing_account_id in sub_billing_account_ids:
-            if not re.fullmatch(pattern, sub_billing_account_id):
-                _LOGGER.debug(
-                    f'[get_tasks] Not valid sub_billing_account_id: '
-                    f'{bucket_name}/{organization}/{sub_billing_account_id}'
-                )
-                sub_billing_account_ids.remove(sub_billing_account_id)
-
-        return sub_billing_account_ids
+            _LOGGER.info(f'[get_tasks] Use billing_dataset in secret_data: {secret_data["billing_dataset"]}')
+            billing_dataset = secret_data['billing_dataset']
+        return billing_dataset
