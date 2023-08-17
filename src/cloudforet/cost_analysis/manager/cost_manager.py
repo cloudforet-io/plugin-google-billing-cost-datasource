@@ -32,7 +32,6 @@ class CostManager(BaseManager):
         self.target_project_id = task_options['target_project_id']
 
         self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{sub_billing_account.replace("-", "_")}'
-        self.billing_table = f'gcp_billing'
         bigquery_tables_info = self.bigquery_connector.list_tables(self.billing_dataset)
         bigquery_table_names = [table_info['tableReference']['tableId'] for table_info in bigquery_tables_info]
 
