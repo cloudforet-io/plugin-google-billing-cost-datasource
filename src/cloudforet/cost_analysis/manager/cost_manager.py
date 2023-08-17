@@ -5,89 +5,62 @@ from dateutil import rrule
 
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.error import *
+from cloudforet.cost_analysis.conf.cost_conf import BIGQUERY_TABLE_PREFIX
 from cloudforet.cost_analysis.connector import BigqueryConnector
 
 _LOGGER = logging.getLogger(__name__)
-
-_PAGE_SIZE = 2000
 
 
 class CostManager(BaseManager):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.google_storage_connector: BigqueryConnector = self.locator.get_connector(BigqueryConnector)
-        self.bucket = None
+        self.bigquery_connector: BigqueryConnector = self.locator.get_connector(BigqueryConnector)
+        self.billing_project_id = None
+        self.billing_dataset = None
+        self.billing_table = None
+        self.target_project_id = None
 
     def get_data(self, options, secret_data, schema, task_options):
-        self.google_storage_connector.create_session(options, secret_data, schema)
+        self.bigquery_connector.create_session(options, secret_data, schema)
         self._check_task_options(task_options)
-        self.bucket = task_options['bucket']
 
         start = task_options['start']
-        organization = task_options['organization']
+        self.billing_project_id = secret_data['project_id']
+        self.billing_dataset = task_options['billing_dataset']
         sub_billing_account = task_options['sub_billing_account']
+        self.target_project_id = task_options['target_project_id']
 
-        exchange_rate_data = self._get_exchange_rate_data()
+        self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{sub_billing_account.replace("-", "_")}'
+        self.billing_table = f'gcp_billing'
+        bigquery_tables_info = self.bigquery_connector.list_tables(self.billing_dataset)
+        bigquery_table_names = [table_info['tableReference']['tableId'] for table_info in bigquery_tables_info]
 
-        folders_info = self.google_storage_connector.list_objects(self.bucket)
-        folder_names = [folder_info['name'] for folder_info in folders_info]
+        if self.billing_table not in bigquery_table_names:
+            raise ERROR_NOT_FOUND_TABLE(table=self.billing_table, dataset=self.billing_dataset)
 
-        exist_cost_data = False
-        date_ranges = self._get_date_range(start)
-        _LOGGER.debug(f'[get_data] task_options: {task_options} / date ranges: {date_ranges[0]} ~ {date_ranges[-1]})')
+        _LOGGER.debug(f'[get_data] task_options: {task_options} / start: {start})')
 
-        for date in date_ranges:
-            year, month = date.split('-')
-            end_date = self._get_end_date(year, month)
+        query = self._create_google_sql(start)
+        response_stream = self.bigquery_connector.read_df_from_bigquery(query)
+        for index, row in response_stream.iterrows():
+            yield self._make_cost_data(row)
 
-            folder_path = f'{organization}/{sub_billing_account}/{year}/{month}/'
-            if csv_file := self._get_csv_file_path(folder_path, folder_names):
-                exist_cost_data = True
-
-                blob = self.google_storage_connector.get_blob(self.bucket, csv_file)
-                response_stream = self._get_cost_data(data=blob.download_as_bytes(),
-                                                      target_file=csv_file)
-                krw = self._set_exchange_rate(exchange_rate_data, year, month)
-
-                for results in response_stream:
-                    yield self._make_cost_data(results, end_date, krw)
-
-            yield []
-
-        if not exist_cost_data:
-            _LOGGER.debug(
-                f'[get_data] There is no cost data in {self.bucket}/{organization}/{sub_billing_account} folder.'
-            )
+        yield []
 
     @staticmethod
     def _check_task_options(task_options):
         if 'start' not in task_options:
             raise ERROR_REQUIRED_PARAMETER(key='task_options.start')
 
-        if 'bucket' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.bucket')
-
-        if 'organization' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.organization')
+        if 'billing_dataset' not in task_options:
+            raise ERROR_REQUIRED_PARAMETER(key='task_options.billing_dataset')
 
         if 'sub_billing_account' not in task_options:
             raise ERROR_REQUIRED_PARAMETER(key='task_options.sub_billing_account')
 
-    def _get_exchange_rate_data(self):
-        exchange_path = 'settings/exchange_rate.csv'
-        try:
-            blob = self.google_storage_connector.get_blob(self.bucket, exchange_path)
-            data_frame = pd.read_csv(io.BytesIO(blob.download_as_bytes()))
-            data_frame = data_frame.replace({np.nan: None})
-            data_frame['year'].astype(int)
-            data_frame['month'].astype(int)
-            exchange_rate_data = data_frame.to_dict('records')
-        except Exception as e:
-            _LOGGER.error(f'[_get_exchange_rate_data] {e}')
-            raise ERROR_EXCHANGE_RATE_DATA_NOT_FOUND()
-
-        return exchange_rate_data
+        if 'target_project_id' not in task_options:
+            raise ERROR_REQUIRED_PARAMETER(key='task_options.target_project_id')
 
     @staticmethod
     def _get_date_range(start):
@@ -101,92 +74,67 @@ class CostManager(BaseManager):
         return date_ranges
 
     @staticmethod
-    def _get_end_date(year, month):
-        next_month = datetime(int(year), int(month) + 1, 1) if month != '12' else datetime(int(year) + 1, 1, 1)
-        end_date = next_month - timedelta(days=1)
-        return end_date.strftime('%Y-%m-%d')
-
-    @staticmethod
-    def _set_exchange_rate(exchange_rate_data, year, month):
-        krw = 0
-        for exchange_rate in exchange_rate_data:
-            if exchange_rate['year'] == int(year) and exchange_rate['month'] == int(month):
-                krw = int(exchange_rate['KRW'])
-                break
-        if not krw:
-            raise ERROR_NOT_FOUND_EXCHANGE_RATE(year=year, month=month)
-        return krw
-
-    def _get_csv_file_path(self, folder_path, folder_names):
-        csv_files = [
-            file_name for file_name in folder_names
-            if file_name.startswith(folder_path) and file_name.endswith('.csv')
-        ]
-
-        if len(csv_files) > 1:
-            raise ERROR_TOO_MANY_CSV_FILES(target_dir=csv_files)
-        elif not csv_files:
-            _LOGGER.debug(f'[get_csv_file_path] csv file not found (path: {self.bucket}/{folder_path})')
-            return None
-        else:
-            return csv_files[0]
-
-    def _get_cost_data(self, data, target_file):
-        data_frame = pd.read_csv(io.BytesIO(data))
-        data_frame = data_frame.replace({np.nan: None})
-
-        data_frame = self._apply_strip_to_columns(data_frame)
-        costs_data = data_frame.to_dict('records')
-
-        _LOGGER.debug(f'[get_cost_data] costs count({target_file}): {len(costs_data)}')
-
-        # Paginate
-        page_count = int(len(costs_data) / _PAGE_SIZE) + 1
-
-        for page_num in range(page_count):
-            offset = _PAGE_SIZE * page_num
-            yield costs_data[offset:offset + _PAGE_SIZE]
-
-    @staticmethod
-    def _apply_strip_to_columns(data_frame):
-        columns = list(data_frame.columns)
-        columns = [column.strip() for column in columns]
-        data_frame.columns = columns
-
-        if isinstance(data_frame['소계'].values[0], str):
-            data_frame['소계'] = data_frame['소계'].str.replace(',', '')
-            data_frame['소계'] = data_frame['소계'].astype(float)
-
-        return data_frame
-
-    @staticmethod
-    def _make_cost_data(results, end_date, krw):
+    def _make_cost_data(row):
         costs_data = []
+        try:
+            data = {
+                'cost': row.cost * (1 / row.currency_conversion_rate),
+                'currency': 'USD',
+                'usage_quantity': row.usage_quantity,
+                'provider': 'google_cloud',
+                'product': row.description,
+                'region_code': row.region_code,
+                'account': row.id,
+                'usage_type': row.sku_description,
+                'usage_unit': row.pricing_unit,
+                'billed_at': row.billed_at,
+                'additional_info': {
+                    'Project Name': row.name,
+                    'Billing Account ID': row.billing_account_id,
+                    'Cost Type': row.cost_type,
+                    'Invoice Month': row.month
+                },
+            }
 
-        for result in results:
-            try:
-                data = {
-                    'cost': result['소계'] * (1 / krw),
-                    'currency': 'USD',
-                    # 'usage_quantity': result['Usage'],
-                    'provider': 'google_cloud',
-                    'product': result['Service Name'],
-                    # 'region_code': result.get('Region') if result.get('Region') else 'global',
-                    'account': result.get('Project ID'),
-                    'usage_type': result['SKU Name'],
-                    # 'usage_unit': result['Usage Unit'],
-                    'billed_at': datetime.strptime(end_date, '%Y-%m-%d'),
-                    'additional_info': {
-                        'Project Name': result.get('Project Name'),
-                        'Sub Billing Account Name': result.get('SBA Name')
-                        # 'Cost Type': result.get('Cost Type')
-                    },
-                }
+        except Exception as e:
+            _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
+            raise e
 
-            except Exception as e:
-                _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
-                raise e
-
-            costs_data.append(data)
+        costs_data.append(data)
 
         return costs_data
+
+    def _create_google_sql(self, start):
+        where_condition = f"""
+        WHERE usage_start_time >= TIMESTAMP('{start}')
+        """
+        if self.target_project_id != '*':
+            where_condition += f" AND project.id = '{self.target_project_id}'"
+
+        query = f"""
+            SELECT
+              timestamp_trunc(usage_start_time, DAY) as billed_at,
+              billing_account_id,
+              service.description,
+              sku.description as sku_description,
+              project.id,
+              project.name,
+              IFNULL((location.region), 'global') as region_code,
+              currency_conversion_rate,
+              usage.pricing_unit,
+              invoice.month,
+              cost_type,
+            
+              SUM(cost)
+                + SUM(IFNULL((SELECT SUM(c.amount)
+                              FROM UNNEST(credits) c), 0))
+                AS cost,
+            
+              SUM(usage.amount_in_pricing_units) as usage_quantity,
+            FROM `{self.billing_project_id}.{self.billing_dataset}.{self.billing_table}`
+            {where_condition}
+            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+            ORDER BY billed_at desc
+            ;
+        """
+        return query

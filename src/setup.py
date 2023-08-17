@@ -34,7 +34,9 @@ setup(
         'spaceone-core',
         'spaceone-api',
         'schematics',
-        'google-api-python-client'
+        'google-api-python-client',
+        'pandas-gbq',
+        'tqdm'
     ],
     zip_safe=False,
 )

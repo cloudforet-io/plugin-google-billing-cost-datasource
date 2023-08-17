@@ -2,4 +2,5 @@ spaceone-core
 spaceone-api
 schematics
 google-api-python-client
-
+pandas-gbq
+tqdm
