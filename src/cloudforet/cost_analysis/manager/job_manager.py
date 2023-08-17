@@ -17,6 +17,7 @@ class JobManager(BaseManager):
         super().__init__(**kwargs)
         self.bigquery_connector: BigqueryConnector = self.locator.get_connector(BigqueryConnector)
         self.cloud_billing_connector: CloudBillingConnector = self.locator.get_connector(CloudBillingConnector)
+        self.billing_account_id = None
 
     def get_tasks(self, options, secret_data, schema, start, last_synchronized_at, domain_id):
 
@@ -31,9 +32,9 @@ class JobManager(BaseManager):
         self.cloud_billing_connector.create_session(options, secret_data, schema)
 
         billing_dataset = self._get_billing_dataset_from_secret_data(secret_data)
-
         billing_info = self.cloud_billing_connector.get_billing_info()
-        prefix, sub_billing_account = billing_info['billingAccountName'].split('/')
+        prefix, self.billing_account_id = billing_info['billingAccountName'].split('/')
+        target_project_ids = self._get_target_project_ids(secret_data['target_project_id'])
 
         secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
 
@@ -41,17 +42,32 @@ class JobManager(BaseManager):
             # NOT IMPLEMENTED
             pass
         elif secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
-            task = {
-                'task_options': {
-                    'start': start_date,
-                    'billing_dataset': billing_dataset,
-                    'sub_billing_account': sub_billing_account,
-                    'project_id': secret_data['project_id']
-                }
-            }
 
-            tasks.append(task)
-            changed.append({'start': changed_time})
+            if target_project_ids:
+                for target_project_id in target_project_ids:
+                    task = {
+                        'task_options': {
+                            'start': start_date,
+                            'billing_dataset': billing_dataset,
+                            'sub_billing_account': self.billing_account_id,
+                            'target_project_id': target_project_id
+                        }
+                    }
+
+                    tasks.append(task)
+                    changed.append({'start': changed_time})
+            else:
+                task = {
+                    'task_options': {
+                        'start': start_date,
+                        'billing_dataset': billing_dataset,
+                        'sub_billing_account': self.billing_account_id,
+                        'target_project_id': '*'
+                    }
+                }
+
+                tasks.append(task)
+                changed.append({'start': changed_time})
         else:
             raise ERROR_INVALID_SECRET_TYPE(secret_type=options.get('secret_type'))
 
@@ -77,10 +93,21 @@ class JobManager(BaseManager):
     @staticmethod
     def _get_billing_dataset_from_secret_data(secret_data):
         if not secret_data.get('billing_dataset'):
-            _LOGGER.info(
+            _LOGGER.debug(
                 f'[get_tasks] Not exist billing_dataset in secret_data. Use default: {DEFAULT_BILLING_DATASET}')
             billing_dataset = DEFAULT_BILLING_DATASET
         else:
-            _LOGGER.info(f'[get_tasks] Use billing_dataset in secret_data: {secret_data["billing_dataset"]}')
+            _LOGGER.debug(f'[get_tasks] Use billing_dataset in secret_data: {secret_data["billing_dataset"]}')
             billing_dataset = secret_data['billing_dataset']
         return billing_dataset
+
+    def _get_target_project_ids(self, target_project_id: list):
+        if not target_project_id:
+            _LOGGER.info(f'[get_tasks] Not exist target_project_id: {self.billing_account_id}')
+            raise ERROR_NOT_EXIST_TARGET_PROJECT_ID(target_project_id=target_project_id)
+
+        elif '*' in target_project_id:
+            _LOGGER.info(f'[get_tasks] Use all projects in billing account: {self.billing_account_id}')
+            return []
+        else:
+            return target_project_id
