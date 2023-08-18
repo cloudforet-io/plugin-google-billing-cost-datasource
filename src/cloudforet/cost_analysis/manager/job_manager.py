@@ -30,6 +30,7 @@ class JobManager(BaseManager):
 
         self.bigquery_connector.create_session(options, secret_data, schema)
         self.cloud_billing_connector.create_session(options, secret_data, schema)
+        self._check_target_project_id_in_secret_data(secret_data)
 
         billing_dataset = self._get_billing_dataset_from_secret_data(secret_data)
         billing_info = self.cloud_billing_connector.get_billing_info()
@@ -45,29 +46,16 @@ class JobManager(BaseManager):
 
             if target_project_ids:
                 for target_project_id in target_project_ids:
-                    task = {
-                        'task_options': {
-                            'start': start_date,
-                            'billing_dataset': billing_dataset,
-                            'sub_billing_account': self.billing_account_id,
-                            'target_project_id': target_project_id
-                        }
-                    }
-
+                    task, change_info = self._generate_task_and_change_info(start_date, changed_time, billing_dataset,
+                                                                            target_project_id)
                     tasks.append(task)
-                    changed.append({'start': changed_time})
+                    changed.append(change_info)
             else:
-                task = {
-                    'task_options': {
-                        'start': start_date,
-                        'billing_dataset': billing_dataset,
-                        'sub_billing_account': self.billing_account_id,
-                        'target_project_id': '*'
-                    }
-                }
-
+                target_project_id = '*'
+                task, change_info = self._generate_task_and_change_info(start_date, changed_time, billing_dataset,
+                                                                        target_project_id)
                 tasks.append(task)
-                changed.append({'start': changed_time})
+                changed.append(change_info)
         else:
             raise ERROR_INVALID_SECRET_TYPE(secret_type=options.get('secret_type'))
 
@@ -91,6 +79,11 @@ class JobManager(BaseManager):
         return start_time
 
     @staticmethod
+    def _check_target_project_id_in_secret_data(secret_data):
+        if not secret_data.get('target_project_id'):
+            raise ERROR_REQUIRED_PARAMETER(key='secret_data.target_project_id')
+
+    @staticmethod
     def _get_billing_dataset_from_secret_data(secret_data):
         if not secret_data.get('billing_dataset'):
             _LOGGER.debug(
@@ -111,3 +104,17 @@ class JobManager(BaseManager):
             return []
         else:
             return target_project_id
+
+    def _generate_task_and_change_info(self, start_date, changed_time, billing_dataset, target_project_id):
+        task = {
+            'task_options': {
+                'start': start_date,
+                'billing_dataset': billing_dataset,
+                'sub_billing_account': self.billing_account_id,
+                'target_project_id': target_project_id
+            }
+        }
+
+        changed = {'start': changed_time}
+
+        return task, changed

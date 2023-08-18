@@ -32,11 +32,7 @@ class CostManager(BaseManager):
         self.target_project_id = task_options['target_project_id']
 
         self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{sub_billing_account.replace("-", "_")}'
-        bigquery_tables_info = self.bigquery_connector.list_tables(self.billing_dataset)
-        bigquery_table_names = [table_info['tableReference']['tableId'] for table_info in bigquery_tables_info]
-
-        if self.billing_table not in bigquery_table_names:
-            raise ERROR_NOT_FOUND_TABLE(table=self.billing_table, dataset=self.billing_dataset)
+        self._validate_table_exists()
 
         _LOGGER.debug(f'[get_data] task_options: {task_options} / start: {start})')
 
@@ -61,16 +57,12 @@ class CostManager(BaseManager):
         if 'target_project_id' not in task_options:
             raise ERROR_REQUIRED_PARAMETER(key='task_options.target_project_id')
 
-    @staticmethod
-    def _get_date_range(start):
-        date_ranges = []
-        start_time = datetime.strptime(start, '%Y-%m-%d')
-        now = datetime.utcnow()
-        for dt in rrule.rrule(rrule.MONTHLY, dtstart=start_time, until=now):
-            billed_month = dt.strftime('%Y-%m')
-            date_ranges.append(billed_month)
+    def _validate_table_exists(self):
+        bigquery_tables_info = self.bigquery_connector.list_tables(self.billing_dataset)
+        bigquery_table_names = [table_info["tableReference"]["tableId"] for table_info in bigquery_tables_info]
 
-        return date_ranges
+        if self.billing_table not in bigquery_table_names:
+            raise ERROR_NOT_FOUND_TABLE(table=self.billing_table, dataset=self.billing_dataset)
 
     @staticmethod
     def _make_cost_data(row):

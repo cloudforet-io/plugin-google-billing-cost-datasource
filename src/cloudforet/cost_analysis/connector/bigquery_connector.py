@@ -8,6 +8,8 @@ from cloudforet.cost_analysis.error import *
 
 _LOGGER = logging.getLogger(__name__)
 
+REQUIRED_SECRET_KEYS = ["project_id", "private_key", "token_uri", "client_email"]
+
 
 class BigqueryConnector(BaseConnector):
 
@@ -44,14 +46,7 @@ class BigqueryConnector(BaseConnector):
 
     @staticmethod
     def _check_secret_data(secret_data):
-        if 'project_id' not in secret_data:
-            raise ERROR_REQUIRED_PARAMETER(key='secret_data.project_id')
-
-        if 'private_key' not in secret_data:
-            raise ERROR_REQUIRED_PARAMETER(key='secret_data.private_key')
-
-        if 'token_uri' not in secret_data:
-            raise ERROR_REQUIRED_PARAMETER(key='secret_data.token_uri')
-
-        if 'client_email' not in secret_data:
-            raise ERROR_REQUIRED_PARAMETER(key='secret_data.client_email')
+        missing_keys = [key for key in REQUIRED_SECRET_KEYS if key not in secret_data]
+        if missing_keys:
+            for key in missing_keys:
+                raise ERROR_REQUIRED_PARAMETER(key=f"secret_data.{key}")
