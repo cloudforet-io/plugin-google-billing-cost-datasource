@@ -44,10 +44,10 @@ class JobManager(BaseManager):
 
         secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
 
-        if secret_type == 'MANUAL':
+        if secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
             # NOT IMPLEMENTED
             pass
-        elif secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
+        elif secret_type == 'MANUAL':
 
             if target_project_ids:
                 for target_project_id in target_project_ids:
