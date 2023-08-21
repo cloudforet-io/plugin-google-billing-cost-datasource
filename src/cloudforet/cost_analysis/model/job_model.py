@@ -8,7 +8,7 @@ __all__ = ['Tasks']
 class TaskOptions(Model):
     start = StringType(required=True)
     billing_dataset = StringType()
-    sub_billing_account = StringType(default=None)
+    billing_account_id = StringType(default=None)
     target_project_id = StringType()
 
 

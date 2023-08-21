@@ -10,6 +10,8 @@ from cloudforet.cost_analysis.connector import BigqueryConnector
 
 _LOGGER = logging.getLogger(__name__)
 
+REQUIRED_TASK_OPTIONS = ["start", "billing_dataset", "billing_account_id", "target_project_id"]
+
 
 class CostManager(BaseManager):
 
@@ -28,10 +30,10 @@ class CostManager(BaseManager):
         start = task_options['start']
         self.billing_project_id = secret_data['project_id']
         self.billing_dataset = task_options['billing_dataset']
-        sub_billing_account = task_options['sub_billing_account']
+        billing_account_id = task_options['billing_account_id']
         self.target_project_id = task_options['target_project_id']
 
-        self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{sub_billing_account.replace("-", "_")}'
+        self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{billing_account_id.replace("-", "_")}'
         self._validate_table_exists()
 
         _LOGGER.debug(f'[get_data] task_options: {task_options} / start: {start})')
@@ -45,17 +47,10 @@ class CostManager(BaseManager):
 
     @staticmethod
     def _check_task_options(task_options):
-        if 'start' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.start')
-
-        if 'billing_dataset' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.billing_dataset')
-
-        if 'sub_billing_account' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.sub_billing_account')
-
-        if 'target_project_id' not in task_options:
-            raise ERROR_REQUIRED_PARAMETER(key='task_options.target_project_id')
+        missing_keys = [key for key in REQUIRED_TASK_OPTIONS if key not in task_options]
+        if missing_keys:
+            for key in missing_keys:
+                raise ERROR_REQUIRED_PARAMETER(key=f"task_options.{key}")
 
     def _validate_table_exists(self):
         bigquery_tables_info = self.bigquery_connector.list_tables(self.billing_dataset)

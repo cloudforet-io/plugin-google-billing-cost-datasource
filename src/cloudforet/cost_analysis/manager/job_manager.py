@@ -33,8 +33,13 @@ class JobManager(BaseManager):
         self._check_target_project_id_in_secret_data(secret_data)
 
         billing_dataset = self._get_billing_dataset_from_secret_data(secret_data)
-        billing_info = self.cloud_billing_connector.get_billing_info()
-        prefix, self.billing_account_id = billing_info['billingAccountName'].split('/')
+
+        if secret_data.get('target_billing_account_id'):
+            self.billing_account_id = secret_data['target_billing_account_id']
+        else:
+            billing_info = self.cloud_billing_connector.get_billing_info()
+            prefix, self.billing_account_id = billing_info['billingAccountName'].split('/')
+
         target_project_ids = self._get_target_project_ids(secret_data['target_project_id'])
 
         secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
@@ -110,7 +115,7 @@ class JobManager(BaseManager):
             'task_options': {
                 'start': start_date,
                 'billing_dataset': billing_dataset,
-                'sub_billing_account': self.billing_account_id,
+                'billing_account_id': self.billing_account_id,
                 'target_project_id': target_project_id
             }
         }
