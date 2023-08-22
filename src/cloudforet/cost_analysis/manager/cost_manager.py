@@ -1,7 +1,4 @@
 import logging
-import io
-from datetime import datetime, timedelta
-from dateutil import rrule
 
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.error import *
@@ -11,6 +8,7 @@ from cloudforet.cost_analysis.connector import BigqueryConnector
 _LOGGER = logging.getLogger(__name__)
 
 REQUIRED_TASK_OPTIONS = ["start", "billing_dataset", "billing_account_id", "target_project_id"]
+EXCLUSIVE_PRODUCT = ['Invoice']
 
 
 class CostManager(BaseManager):
@@ -63,9 +61,7 @@ class CostManager(BaseManager):
     def _make_cost_data(row):
         costs_data = []
         try:
-            if row.product == 'Invoice':
-                pass
-            else:
+            if row.product not in EXCLUSIVE_PRODUCT:
                 data = {
                     'cost': row.cost * (1 / row.currency_conversion_rate),
                     'currency': 'USD',
