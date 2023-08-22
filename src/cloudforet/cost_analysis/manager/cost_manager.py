@@ -63,30 +63,33 @@ class CostManager(BaseManager):
     def _make_cost_data(row):
         costs_data = []
         try:
-            data = {
-                'cost': row.cost * (1 / row.currency_conversion_rate),
-                'currency': 'USD',
-                'usage_quantity': row.usage_quantity,
-                'provider': 'google_cloud',
-                'product': row.description,
-                'region_code': row.region_code,
-                'account': row.id,
-                'usage_type': row.sku_description,
-                'usage_unit': row.pricing_unit,
-                'billed_at': row.billed_at,
-                'additional_info': {
-                    'Project Name': row.name,
-                    'Billing Account ID': row.billing_account_id,
-                    'Cost Type': row.cost_type,
-                    'Invoice Month': row.month
-                },
-            }
+            if row.product == 'Invoice':
+                pass
+            else:
+                data = {
+                    'cost': row.cost * (1 / row.currency_conversion_rate),
+                    'currency': 'USD',
+                    'usage_quantity': row.usage_quantity,
+                    'provider': 'google_cloud',
+                    'product': row.description,
+                    'region_code': row.region_code,
+                    'account': row.id,
+                    'usage_type': row.sku_description,
+                    'usage_unit': row.pricing_unit,
+                    'billed_at': row.billed_at,
+                    'additional_info': {
+                        'Project Name': row.name,
+                        'Billing Account ID': row.billing_account_id,
+                        'Cost Type': row.cost_type,
+                        'Invoice Month': row.month
+                    },
+                }
+
+                costs_data.append(data)
 
         except Exception as e:
             _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
             raise e
-
-        costs_data.append(data)
 
         return costs_data
 
