@@ -22,7 +22,7 @@ CONNECTORS = {
     'SpaceConnector': {
         'backend': 'cloudforet.core.connector.space_connector.SpaceConnector',
         'endpoints': {
-            'identity': 'grpc+ssl://identity.api.dev.cloudforet.dev:443/v1'
+            'identity': 'grpc://identity:50051',
         }
     },
 }
