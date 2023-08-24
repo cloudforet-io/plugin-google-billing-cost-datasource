@@ -7,7 +7,7 @@ from cloudforet.cost_analysis.connector import BigqueryConnector
 
 _LOGGER = logging.getLogger(__name__)
 
-REQUIRED_TASK_OPTIONS = ["start", "billing_dataset", "billing_account_id", "target_project_id"]
+REQUIRED_TASK_OPTIONS = ["start", "billing_dataset", "billing_account_id", "project_id"]
 EXCLUSIVE_PRODUCT = ['Invoice']
 
 
@@ -29,7 +29,7 @@ class CostManager(BaseManager):
         self.billing_project_id = secret_data['project_id']
         self.billing_dataset = task_options['billing_dataset']
         billing_account_id = task_options['billing_account_id']
-        self.target_project_id = task_options['target_project_id']
+        self.target_project_id = task_options['project_id']
 
         self.billing_table = f'{BIGQUERY_TABLE_PREFIX}_{billing_account_id.replace("-", "_")}'
         self._validate_table_exists()

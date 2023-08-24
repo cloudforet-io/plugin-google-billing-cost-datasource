@@ -9,7 +9,7 @@ class TaskOptions(Model):
     start = StringType(required=True)
     billing_dataset = StringType()
     billing_account_id = StringType(default=None)
-    target_project_id = StringType()
+    project_id = StringType()
 
 
 class Task(Model):
