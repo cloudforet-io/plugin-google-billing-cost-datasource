@@ -116,7 +116,7 @@ class JobManager(BaseManager):
                 'start': start_date,
                 'billing_dataset': billing_dataset,
                 'billing_account_id': self.billing_account_id,
-                'target_project_id': target_project_id
+                'project_id': target_project_id
             }
         }
 
