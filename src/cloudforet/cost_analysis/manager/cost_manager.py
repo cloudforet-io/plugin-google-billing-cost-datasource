@@ -59,6 +59,22 @@ class CostManager(BaseManager):
 
     @staticmethod
     def _make_cost_data(row):
+        """ Source Data Model (DataFrame)
+        class CostSummaryItem(DataFrame):
+            billed_at: str
+            billing_account_id: str
+            sku_description: str
+            id: str
+            name: str
+            region_code: str
+            currency_conversion_rate: float
+            pricing_unit: str
+            month: str
+            cost_type: str
+            labels: str(list of dict)
+            cost: float
+            usage_quantity: float
+        """
         costs_data = []
         try:
             if row.product not in EXCLUSIVE_PRODUCT:
@@ -74,12 +90,17 @@ class CostManager(BaseManager):
                     'usage_unit': row.pricing_unit,
                     'billed_at': row.billed_at,
                     'additional_info': {
-                        'Project Name': row.name,
+                        'Project Name': row.project_name,
                         'Billing Account ID': row.billing_account_id,
                         'Cost Type': row.cost_type,
                         'Invoice Month': row.month
                     },
+                    'tags': {}
                 }
+
+                if labels := eval(row.labels):
+                    for label_object in labels:
+                        data['tags'][label_object['key']] = label_object['value']
 
                 costs_data.append(data)
 
@@ -103,12 +124,13 @@ class CostManager(BaseManager):
               service.description,
               sku.description as sku_description,
               project.id,
-              project.name,
+              project.name as project_name,
               IFNULL((location.region), 'global') as region_code,
               currency_conversion_rate,
               usage.pricing_unit,
               invoice.month,
               cost_type,
+              TO_JSON_STRING(labels) as labels,
             
               SUM(cost)
                 + SUM(IFNULL((SELECT SUM(c.amount)
@@ -118,7 +140,7 @@ class CostManager(BaseManager):
               SUM(usage.amount_in_pricing_units) as usage_quantity,
             FROM `{self.billing_project_id}.{self.billing_dataset}.{self.billing_table}`
             {where_condition}
-            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
             ORDER BY billed_at desc
             ;
         """
