@@ -10,7 +10,7 @@ on:
 
 env:
   TAG: ${{ github.event.inputs.tag }}
-  SLACK_WEBHOOK_URL: ${{secrets.SLACK_WEBHOOK_URL}}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   owner_check:
@@ -108,11 +108,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           tags: ${{ env.VERSION }}
-      - name: Build and push to cloudforet
+      - name: Build and push to spaceone
         uses: docker/build-push-action@v1
         with:
           path: .
-          repository: cloudforet/${{ env.SERVICE }}
+          repository: spaceone/${{ env.SERVICE }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           tags: ${{ env.VERSION }}
