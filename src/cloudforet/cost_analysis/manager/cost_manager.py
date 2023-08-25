@@ -59,6 +59,22 @@ class CostManager(BaseManager):
 
     @staticmethod
     def _make_cost_data(row):
+        """ Source Data Model (DataFrame)
+        class CostSummaryItem(DataFrame):
+            billed_at: str
+            billing_account_id: str
+            sku_description: str
+            id: str
+            name: str
+            region_code: str
+            currency_conversion_rate: float
+            pricing_unit: str
+            month: str
+            cost_type: str
+            labels: str(list of dict)
+            cost: float
+            usage_quantity: float
+        """
         costs_data = []
         try:
             if row.product not in EXCLUSIVE_PRODUCT:
