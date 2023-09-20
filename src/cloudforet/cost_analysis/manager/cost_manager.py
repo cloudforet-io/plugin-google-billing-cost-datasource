@@ -57,8 +57,7 @@ class CostManager(BaseManager):
         if self.billing_table not in bigquery_table_names:
             raise ERROR_NOT_FOUND_TABLE(table=self.billing_table, dataset=self.billing_dataset)
 
-    @staticmethod
-    def _make_cost_data(row):
+    def _make_cost_data(self, row):
         """ Source Data Model (DataFrame)
         class CostSummaryItem(DataFrame):
             billed_at: str
@@ -86,7 +85,7 @@ class CostManager(BaseManager):
                     'region_code': row.region_code,
                     'usage_type': row.sku_description,
                     'usage_unit': row.pricing_unit,
-                    'billed_date': row.billed_at,
+                    'billed_date': self._change_datetime_to_string(row.billed_at),
                     'additional_info': {
                         'Project ID': row.id,
                         'Project Name': row.project_name,
@@ -144,3 +143,7 @@ class CostManager(BaseManager):
             ;
         """
         return query
+
+    @staticmethod
+    def _change_datetime_to_string(date_time):
+        return str(date_time.strftime("%Y-%m-%d"))
