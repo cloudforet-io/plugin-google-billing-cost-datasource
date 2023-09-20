@@ -23,7 +23,7 @@ def CostInfo(cost_data):
             'tags': change_struct_type(cost_data['tags']) if 'tags' in cost_data else None,
             'additional_info': change_struct_type(
                 cost_data['additional_info']) if 'additional_info' in cost_data else None,
-            'billed_date': utils.datetime_to_iso8601(cost_data['billed_date'])
+            'billed_date': cost_data['billed_date']
         }
 
         return cost_pb2.CostInfo(**info)

@@ -12,6 +12,6 @@ class Cost(Model):
     usage_type = StringType()
     usage_unit = StringType(default=None)
     usage_quantity = FloatType(required=True)
-    billed_date = DateTimeType(required=True)
+    billed_date = StringType(required=True)
     additional_info = DictType(StringType, default={})
     tags = DictType(StringType, default={})
