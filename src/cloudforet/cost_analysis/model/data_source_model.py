@@ -11,7 +11,7 @@ _DEFAULT_DATA_SOURCE_RULES = [
         'conditions_policy': 'ALWAYS',
         'actions': {
             'match_service_account': {
-                'source': 'account',
+                'source': 'additional_info.Project ID',
                 'target': 'data.project_id'
             }
         },
@@ -52,3 +52,4 @@ class DataSourceRule(Model):
 
 class PluginMetadata(Model):
     data_source_rules = ListType(ModelType(DataSourceRule), default=_DEFAULT_DATA_SOURCE_RULES)
+    currency = StringType(default='KRW')

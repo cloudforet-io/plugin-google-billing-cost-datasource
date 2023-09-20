@@ -80,16 +80,15 @@ class CostManager(BaseManager):
             if row.product not in EXCLUSIVE_PRODUCT:
                 data = {
                     'cost': row.cost * (1 / row.currency_conversion_rate),
-                    'currency': 'USD',
                     'usage_quantity': row.usage_quantity,
                     'provider': 'google_cloud',
                     'product': row.description,
                     'region_code': row.region_code,
-                    'account': row.id,
                     'usage_type': row.sku_description,
                     'usage_unit': row.pricing_unit,
-                    'billed_at': row.billed_at,
+                    'billed_date': row.billed_at,
                     'additional_info': {
+                        'Project ID': row.id,
                         'Project Name': row.project_name,
                         'Billing Account ID': row.billing_account_id,
                         'Cost Type': row.cost_type,
@@ -112,7 +111,7 @@ class CostManager(BaseManager):
 
     def _create_google_sql(self, start):
         where_condition = f"""
-        WHERE usage_start_time >= TIMESTAMP('{start}')
+        WHERE usage_start_time >= TIMESTAMP('{start}-01')
         """
         if self.target_project_id != '*':
             where_condition += f" AND project.id = '{self.target_project_id}'"

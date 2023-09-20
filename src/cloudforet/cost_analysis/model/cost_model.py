@@ -6,15 +6,12 @@ __all__ = ['Cost']
 
 class Cost(Model):
     cost = FloatType(required=True)
-    usd_cost = FloatType(required=True)
-    currency = StringType(default='KRW')
-    usage_quantity = FloatType(required=True)
     provider = StringType(required=True)
     region_code = StringType()
     product = StringType()
-    account = StringType(required=True)
     usage_type = StringType()
     usage_unit = StringType(default=None)
-    billed_at = DateTimeType(required=True)
+    usage_quantity = FloatType(required=True)
+    billed_date = DateTimeType(required=True)
     additional_info = DictType(StringType, default={})
     tags = DictType(StringType, default={})
