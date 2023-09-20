@@ -78,7 +78,7 @@ class CostManager(BaseManager):
         try:
             if row.product not in EXCLUSIVE_PRODUCT:
                 data = {
-                    'cost': row.cost * (1 / row.currency_conversion_rate),
+                    'cost': row.cost_at_list,
                     'usage_quantity': row.usage_quantity,
                     'provider': 'google_cloud',
                     'product': row.description,
@@ -91,7 +91,8 @@ class CostManager(BaseManager):
                         'Project Name': row.project_name,
                         'Billing Account ID': row.billing_account_id,
                         'Cost Type': row.cost_type,
-                        'Invoice Month': row.month
+                        'Invoice Month': row.month,
+                        'Charged Cost': row.cost
                     },
                     'tags': {}
                 }
