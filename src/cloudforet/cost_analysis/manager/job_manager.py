@@ -24,9 +24,7 @@ class JobManager(BaseManager):
         tasks = []
         changed = []
 
-        start_time = self._get_start_time(start, last_synchronized_at)
-        start_date = start_time.strftime('%Y-%m-%d')
-        changed_time = start_time
+        start_month = self._get_start_month(start, last_synchronized_at)
 
         self.bigquery_connector.create_session(options, secret_data, schema)
         self.cloud_billing_connector.create_session(options, secret_data, schema)
@@ -51,14 +49,20 @@ class JobManager(BaseManager):
 
             if target_project_ids:
                 for target_project_id in target_project_ids:
-                    task, change_info = self._generate_task_and_change_info(start_date, changed_time, billing_dataset,
-                                                                            target_project_id)
+                    task, change_info = self._generate_task_and_change_info(
+                        start_month,
+                        billing_dataset,
+                        target_project_id
+                    )
                     tasks.append(task)
                     changed.append(change_info)
             else:
                 target_project_id = '*'
-                task, change_info = self._generate_task_and_change_info(start_date, changed_time, billing_dataset,
-                                                                        target_project_id)
+                task, change_info = self._generate_task_and_change_info(
+                    start_month,
+                    billing_dataset,
+                    target_project_id
+                )
                 tasks.append(task)
                 changed.append(change_info)
         else:
@@ -68,10 +72,9 @@ class JobManager(BaseManager):
         tasks.validate()
         return tasks.to_primitive()
 
-    @staticmethod
-    def _get_start_time(start, last_synchronized_at=None):
+    def _get_start_month(self, start, last_synchronized_at=None):
         if start:
-            start_time: datetime = start
+            start_time: datetime = self._parse_start_time(start)
         elif last_synchronized_at:
             start_time: datetime = last_synchronized_at - timedelta(days=7)
             start_time = start_time.replace(day=1)
@@ -81,7 +84,16 @@ class JobManager(BaseManager):
 
         start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
-        return start_time
+        return start_time.strftime('%Y-%m')
+
+    @staticmethod
+    def _parse_start_time(start_str):
+        date_format = '%Y-%m'
+
+        try:
+            return datetime.strptime(start_str, date_format)
+        except Exception as e:
+            raise ERROR_INVALID_PARAMETER_TYPE(key='start', type=date_format)
 
     @staticmethod
     def _check_target_project_id_in_secret_data(secret_data):
@@ -110,16 +122,16 @@ class JobManager(BaseManager):
         else:
             return target_project_id
 
-    def _generate_task_and_change_info(self, start_date, changed_time, billing_dataset, target_project_id):
+    def _generate_task_and_change_info(self, start_month, billing_dataset, target_project_id):
         task = {
             'task_options': {
-                'start': start_date,
+                'start': start_month,
                 'billing_dataset': billing_dataset,
                 'billing_account_id': self.billing_account_id,
                 'project_id': target_project_id
             }
         }
 
-        changed = {'start': changed_time}
+        changed = {'start': start_month}
 
         return task, changed
