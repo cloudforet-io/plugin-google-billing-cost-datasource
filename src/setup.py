@@ -32,7 +32,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'spaceone-api',
-        'schematics',
+        'spaceone-cost-analysis',
         'google-api-python-client',
         'pandas-gbq',
         'tqdm'
