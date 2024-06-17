@@ -53,7 +53,10 @@ class JobManager(BaseManager):
                 {
                     "task_options": {
                         "start": start_month,
-                        "compartment_id": row.id
+                        "project_id": row.id,
+                        "billing_export_project_id": self.billing_export_project_id,
+                        "billing_dataset_id": self.billing_dataset,
+                        "billing_account_id": billing_account_id
                     }
                 }
             )
