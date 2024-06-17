@@ -4,7 +4,7 @@ import pandas_gbq
 from googleapiclient.discovery import build
 
 from spaceone.core.connector import BaseConnector
-from cloudforet.cost_analysis.error import *
+from plugin.error import *
 
 _LOGGER = logging.getLogger(__name__)
 
