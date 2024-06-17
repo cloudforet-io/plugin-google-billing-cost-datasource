@@ -46,6 +46,7 @@ def data_source_verify(params: dict) -> None:
 
     options = params["options"]
     secret_data = params["secret_data"]
+    secret_data['private_key'] = _clean_pem(secret_data['private_key'])
     domain_id = params.get("domain_id")
     schema = params.get("schema")
 
@@ -78,6 +79,7 @@ def job_get_tasks(params: dict) -> dict:
     domain_id = params["domain_id"]
     options = params["options"]
     secret_data = params["secret_data"]
+    secret_data['private_key'] = _clean_pem(secret_data['private_key'])
 
     schema = params.get("schema")
     start = params.get("start")
@@ -122,6 +124,7 @@ def cost_get_data(params: dict) -> Generator[dict, None, None]:
 
     options = params["options"]
     secret_data = params["secret_data"]
+    secret_data['private_key'] = _clean_pem(secret_data['private_key'])
 
     task_options = params.get("task_options", {})
     schema = params.get("schema")
@@ -150,8 +153,13 @@ def cost_get_linked_accounts(params: dict) -> dict:
     """
     options = params["options"]
     secret_data = params["secret_data"]
+    secret_data['private_key'] = _clean_pem(secret_data['private_key'])
 
     schema = params.get("schema")
 
     cost_mgr = CostManager()
     return cost_mgr.get_linked_accounts(options, secret_data, schema)
+
+
+def _clean_pem(pem_key: str) -> str:
+    return pem_key.replace('\\n', '\n')
