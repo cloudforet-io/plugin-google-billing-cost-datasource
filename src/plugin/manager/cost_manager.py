@@ -95,6 +95,7 @@ class CostManager(BaseManager):
 
         try:
             if row.product not in EXCLUSIVE_PRODUCT:
+
                 data = {
                     'cost': row.cost,
                     'usage_quantity': row.usage_quantity,
@@ -113,10 +114,6 @@ class CostManager(BaseManager):
                     },
                     'tags': {}
                 }
-
-                if labels := eval(row.labels):
-                    for label_object in labels:
-                        data['tags'][label_object['key']] = label_object['value']
 
                 costs_data.append(data)
 

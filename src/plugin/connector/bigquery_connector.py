@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from spaceone.core.connector import BaseConnector
 from plugin.error import *
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger('spaceone')
 
 REQUIRED_SECRET_KEYS = ["project_id", "private_key", "token_uri", "client_email"]
 
