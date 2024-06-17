@@ -1,2 +1,1 @@
-from cloudforet.cost_analysis.connector.bigquery_connector import BigqueryConnector
-from cloudforet.cost_analysis.connector.cloud_billing_connector import CloudBillingConnector
+from plugin.connector.bigquery_connector import BigqueryConnector
