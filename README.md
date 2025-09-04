@@ -117,7 +117,7 @@ options:
 options:
   source: gcs
   bucket_name: <gcs_bucket_name>
-  account_id: <user_account_id>
+  project_id: <project_id>
   selected_cost: list_price  # or actual_cost
   currency: USD
 ```
@@ -129,8 +129,9 @@ options:
 | `source` | Data source selection | Required | `bigquery`, `gcs` |
 | `billing_export_project_id` | GCP project ID where billing export data is stored | Required | `my-billing-project` |
 | `billing_dataset_id` | BigQuery dataset ID (for BigQuery source) | Required for BigQuery | `billing_data` |
-| `billing_account_id` | GCP billing account ID | Required | `01AB23-CD45EF-GH67IJ` |
+| `billing_account_id` | GCP billing account ID | Required | `01AB23-CD45EF-GH69IJ` |
 | `bucket_name` | GCS bucket name (for GCS source) | Required for GCS | `my-billing-bucket` |
+| `project_id` | GCS project ID  (for GCS source) | Required for GCS | `project_id` |
 | `select_cost` | Cost data selection criteria | Required | `list_price` |
 | `currency` | Currency unit | Required | `USD`, `KRW` |
 
@@ -146,7 +147,7 @@ options:
 ### Billing Export Table Format
 BigQuery table names must follow this pattern:
 ```
-gcp_billing_export_v1_{billing_account_id}
+{billing_export_project_id}.{billing_dataset_id}.gcp_billing_export_v1_{billing_account_id}
 ```
 
 ## Troubleshooting
