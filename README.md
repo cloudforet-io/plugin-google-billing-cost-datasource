@@ -1,20 +1,20 @@
 # Google Cloud Billing Cost DataSource Plugin
 
-Google Cloud Platform의 빌링 데이터를 SpaceONE 플랫폼으로 수집하는 플러그인입니다.
+A plugin that collects Google Cloud Platform billing data for the SpaceONE platform.
 
-## 개요
+## Overview
 
-이 플러그인은 다음 소스에서 GCP 빌링 데이터를 수집할 수 있습니다:
-- **BigQuery**: GCP Billing Export 테이블에서 직접 조회
-- **Google Cloud Storage**: Billing Export 파일 (CSV, Parquet, Avro 형식)
+This plugin can collect GCP billing data from the following sources:
+- **BigQuery**: Direct queries from GCP Billing Export tables
+- **Google Cloud Storage**: Billing Export files (CSV, Parquet, Avro formats)
 
-## 설정 가이드
+## Configuration Guide
 
-### 1단계: 플러그인 등록
+### Step 1: Plugin Registration
 
-먼저 SpaceONE에 플러그인을 등록해야 합니다.
+First, you need to register the plugin in SpaceONE.
 
-**register_plugin.yaml 예시:**
+**register_plugin.yaml example:**
 ```yaml
 capability: {}
 image: <docker_image_name>
@@ -24,49 +24,49 @@ labels:
   - BigQuery
   - GCS Billing File
   - Google Cost DataSource
-name: <플러그인_이름>
-plugin_id: <플러그인_고유_ID>
+name: <plugin_name>
+plugin_id: <unique_plugin_id>
 provider: google_cloud
 registry_config:
-  image_pull_secret: <image_pull_secret>  # Docker 이미지 인증용 보안 키
-  url: <docker_registry_url>              # Docker 레지스트리 URL
+  image_pull_secret: <image_pull_secret>  # Docker image authentication secret
+  url: <docker_registry_url>              # Docker registry URL
 registry_type: DOCKER_HUB                # DOCKER_HUB, GCP_PRIVATE_GCR, AWS_PRIVATE_ECR
 resource_type: cost_analysis.DataSource
 tags: {}
 ```
 
-**등록 명령어:**
+**Registration command:**
 ```bash
 spacectl exec register repository.Plugin -f register_plugin.yaml
 ```
 
-### 2단계: 데이터소스 등록
+### Step 2: DataSource Registration
 
-플러그인을 데이터소스로 등록하여 실제 빌링 데이터를 수집할 수 있도록 설정합니다.
+Register the plugin as a data source to enable actual billing data collection.
 
-**register_datasource.yaml 예시:**
+**register_datasource.yaml example:**
 ```yaml
-name: <데이터소스_이름>
+name: <datasource_name>
 data_source_type: EXTERNAL
 provider: google_cloud
 secret_type: MANUAL
 plugin_info:
-  plugin_id: <플러그인_ID>
-  version: <버전>
-  secret_data:  # Google Cloud Service Account 키 정보
+  plugin_id: <plugin_id>
+  version: <version>
+  secret_data:  # Google Cloud Service Account key information
     auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
     auth_uri: https://accounts.google.com/o/oauth2/auth
-    client_email: <서비스계정_이메일>
-    client_id: <클라이언트_ID>
-    client_x509_cert_url: <인증서_URL>
-    private_key: <프라이빗_키>
-    private_key_id: <키_ID>
-    project_id: <GCP_프로젝트_ID>
+    client_email: <service_account_email>
+    client_id: <client_id>
+    client_x509_cert_url: <certificate_url>
+    private_key: <private_key>
+    private_key_id: <key_id>
+    project_id: <gcp_project_id>
     token_uri: https://oauth2.googleapis.com/token
     type: service_account
     universe_domain: googleapis.com
 metadata:
-  currency: USD  # 통화 단위 (USD, KRW 등)
+  currency: USD  # Currency unit (USD, KRW, etc.)
   data_source_rules:
     - name: match_workspace
       actions:
@@ -77,82 +77,81 @@ metadata:
       options:
         stop_processing: true
   resource_group: DOMAIN
-options:  # 플러그인 실행 옵션
-  source: bigquery                          # 데이터 소스: bigquery 또는 gcs
-  billing_export_project_id: <프로젝트_ID>   # 빌링 Export가 있는 프로젝트 ID
-  billing_dataset_id: <데이터셋_ID>          # BigQuery 데이터셋 ID
-  billing_account_id: <빌링_계정_ID>         # GCP 빌링 계정 ID
-  select_cost: list_price                   # 비용 선택: list_price 또는 actual_cost
-  currency: USD                             # 통화 단위
-upgrade_mode: AUTO                          # 자동 업데이트 여부
+options:  # Plugin execution options
+  source: bigquery                          # Data source: bigquery or gcs
+  billing_export_project_id: <project_id>   # Project ID where billing export is stored
+  billing_dataset_id: <dataset_id>          # BigQuery dataset ID
+  billing_account_id: <billing_account_id>  # GCP billing account ID
+  select_cost: list_price                   # Cost selection: list_price or actual_cost
+  currency: USD                             # Currency unit
+upgrade_mode: AUTO                          # Auto-update enabled
 schedule:
-  state: ENABLED                            # 스케줄 활성화
-  hours: 16                               # 실행 시간 (0-23)
+  state: ENABLED                            # Schedule enabled
+  hours: 16                                 # Execution time (0-23)
   resource_group: DOMAIN
 tags: {}
 ```
 
-**등록 명령어:**
+**Registration command:**
 ```bash
 spacectl exec register cost_analysis.DataSource -f register_datasource.yaml
 ```
 
-## 설정 옵션 상세 설명
+## Detailed Configuration Options
 
-### 데이터 소스별 설정
+### Data Source-Specific Settings
 
-#### BigQuery 소스 사용 시
+#### When using BigQuery source
 ```yaml
 options:
   source: bigquery
-  billing_export_project_id: <빌링_Export_프로젝트_ID>
-  billing_dataset_id: <BigQuery_데이터셋_ID>
-  billing_account_id: <빌링_계정_ID>
-  select_cost: list_price  # 또는 actual_cost
+  billing_export_project_id: <billing_export_project_id>
+  billing_dataset_id: <bigquery_dataset_id>
+  billing_account_id: <billing_account_id>
+  selected_cost: list_price  # or actual_cost
   currency: USD
 ```
 
-#### Google Cloud Storage 소스 사용 시  
+#### When using Google Cloud Storage source  
 ```yaml
 options:
   source: gcs
-  billing_export_project_id: <빌링_Export_프로젝트_ID>
-  bucket_name: <GCS_버킷명>
-  account_id: <사용자_계정_ID>
-  select_cost: list_price  # 또는 actual_cost
+  bucket_name: <gcs_bucket_name>
+  account_id: <user_account_id>
+  selected_cost: list_price  # or actual_cost
   currency: USD
 ```
 
-### 주요 설정 항목
+### Key Configuration Items
 
-| 옵션 | 설명 | 필수여부 | 예시 |
-|------|------|----------|------|
-| `source` | 데이터 소스 선택 | 필수 | `bigquery`, `gcs` |
-| `billing_export_project_id` | 빌링 Export 데이터가 저장된 GCP 프로젝트 ID | 필수 | `my-billing-project` |
-| `billing_dataset_id` | BigQuery 데이터셋 ID (BigQuery 소스 시) | BigQuery 사용시 필수 | `billing_data` |
-| `billing_account_id` | GCP 빌링 계정 ID | 필수 | `01AB23-CD45EF-GH67IJ` |
-| `bucket_name` | GCS 버킷명 (GCS 소스 시) | GCS 사용시 필수 | `my-billing-bucket` |
-| `select_cost` | 비용 데이터 선택 기준 | 필수 | `list_price`, `actual_cost` |
-| `currency` | 통화 단위 | 필수 | `USD`, `KRW` |
+| Option | Description | Required | Example |
+|--------|-------------|----------|---------|
+| `source` | Data source selection | Required | `bigquery`, `gcs` |
+| `billing_export_project_id` | GCP project ID where billing export data is stored | Required | `my-billing-project` |
+| `billing_dataset_id` | BigQuery dataset ID (for BigQuery source) | Required for BigQuery | `billing_data` |
+| `billing_account_id` | GCP billing account ID | Required | `01AB23-CD45EF-GH67IJ` |
+| `bucket_name` | GCS bucket name (for GCS source) | Required for GCS | `my-billing-bucket` |
+| `select_cost` | Cost data selection criteria | Required | `list_price` |
+| `currency` | Currency unit | Required | `USD`, `KRW` |
 
-## 사전 준비사항
+## Prerequisites
 
-### GCP 설정
-1. **Billing Export 활성화**: GCP 콘솔에서 Cloud Billing Export를 BigQuery 또는 GCS로 설정
-2. **Service Account 생성**: 다음 권한을 가진 서비스 계정 필요:
-   - BigQuery 사용 시: `BigQuery Data Viewer`, `BigQuery Job User`
-   - GCS 사용 시: `Storage Object Viewer`
-3. **서비스 계정 키 생성**: JSON 형태의 키 파일 생성
+### GCP Configuration
+1. **Enable Billing Export**: Set up Cloud Billing Export to BigQuery or GCS in the GCP console
+2. **Create Service Account**: Create a service account with the following permissions:
+   - For BigQuery: `BigQuery Data Viewer`, `BigQuery Job User`
+   - For GCS: `Storage Object Viewer`
+3. **Generate Service Account Key**: Create a JSON format key file
 
-### 빌링 Export 테이블 형식
-BigQuery 테이블명은 다음 패턴을 따라야 합니다:
+### Billing Export Table Format
+BigQuery table names must follow this pattern:
 ```
 gcp_billing_export_v1_{billing_account_id}
 ```
 
-## 문제 해결
+## Troubleshooting
 
-### 일반적인 오류
-- **인증 오류**: 서비스 계정 키와 권한을 확인하세요
-- **테이블을 찾을 수 없음**: 빌링 계정 ID와 Export 설정을 확인하세요
-- **데이터가 수집되지 않음**: 빌링 Export가 활성화되어 있고 데이터가 존재하는지 확인하세요
+### Common Errors
+- **Authentication Error**: Check your service account key and permissions
+- **Table Not Found**: Verify your billing account ID and export settings
+- **No Data Collected**: Ensure billing export is enabled and data exists
